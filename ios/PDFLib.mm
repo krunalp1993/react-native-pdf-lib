@@ -7,9 +7,10 @@
 #include <PageContentContext.h>
 #include <libgen.h>
 #include <PDFModifiedPage.h>
+#include <stdlib.h>
 
 #import <stdexcept>
-
+#import <CoreGraphics/CoreGraphics.h>
 #if __has_include(<React/RCTEventDispatcher.h>)
 #else
 #import "RCTEventDispatcher.h"
@@ -18,6 +19,80 @@
 @implementation PDFLib
 
 RCT_EXPORT_MODULE()
+
+RCT_REMAP_METHOD(getPageData,
+                 :(NSString*)pdfPath
+                 :(NSInteger*)randomId
+                 getPageDataResolve:(RCTPromiseResolveBlock)resolve
+                 getPageDataReject:(RCTPromiseRejectBlock)reject)
+{
+    try {
+        NSLog(@"Get Page Data Called ====> ");
+        NSURL *localURL = [NSURL fileURLWithPath:pdfPath];
+        CGPDFDocumentRef pdf = CGPDFDocumentCreateWithURL(((CFURLRef)localURL));
+        
+        size_t noPages = (size_t) CGPDFDocumentGetNumberOfPages(pdf);
+        NSLog(@"Total No of pages ===> %zu", noPages);
+        
+        
+        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+        NSString *documentsPath = [paths objectAtIndex:0];
+        NSString *directoryName = [NSString stringWithFormat:@"/pdf_data_%li", (long)randomId];
+        NSString *dataPath = [documentsPath stringByAppendingPathComponent:directoryName];
+        
+        if (![[NSFileManager defaultManager] fileExistsAtPath:dataPath])
+            [[NSFileManager defaultManager] createDirectoryAtPath:dataPath withIntermediateDirectories:NO attributes:nil error:nil]; //Create folder
+        
+        NSMutableArray *responseJson = [NSMutableArray array];
+        
+        for (std::size_t i = 1; i <= noPages; ++i) {
+            
+            NSLog(@"Looping through page ==> %zu", i);
+            CGPDFPageRef page = CGPDFDocumentGetPage(pdf, i);
+            
+            CGRect mediaBox = CGPDFPageGetBoxRect(page, kCGPDFMediaBox);
+            size_t width = (size_t) CGRectGetWidth(mediaBox);
+            size_t height = (size_t) CGRectGetHeight(mediaBox);
+            size_t bytesPerRow = ((width * 4) + 0x0000000F) & ~0x0000000F;
+            
+            CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
+            CGContextRef context =  CGBitmapContextCreate(NULL, width, height, 8, bytesPerRow, colorSpace, (kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little));
+            CGColorSpaceRelease(colorSpace);
+    
+            CGContextSetFillColorWithColor(context, UIColor.whiteColor.CGColor);
+            CGContextFillRect(context, CGRectMake(0.0, 0.0, width, height));
+    
+            CGContextDrawPDFPage(context, page);
+    
+            CGImageRef result = CGBitmapContextCreateImage(context);
+    
+            
+            NSString *fileName = [NSString stringWithFormat: @"image_%zu.jpg", i];
+            NSString *imagePath = [dataPath stringByAppendingPathComponent:fileName];
+            NSData *imageData = UIImageJPEGRepresentation([UIImage imageWithCGImage:result], 1);
+            
+            [imageData writeToFile:imagePath atomically:YES];
+            
+            if ([[NSFileManager defaultManager] fileExistsAtPath:imagePath])
+            NSLog(@"imagePath exists");
+            
+            NSMutableDictionary *pageData =  [[NSMutableDictionary alloc] init];
+            pageData[@"thumb"] = imagePath;
+            pageData[@"height"] = [NSNumber numberWithInt:height];
+            pageData[@"width"] = [NSNumber numberWithInt:width];
+            NSLog(@"Path Data ==> %@",pageData);
+            [responseJson addObject: pageData];
+        }
+        
+        NSLog(@"%@",responseJson);
+        resolve(responseJson);
+    } catch( const std::invalid_argument& e) {
+        NSString *msg = [NSString stringWithCString:e.what()
+                                  encoding:[NSString defaultCStringEncoding]];
+        reject(@"error", msg, nil);
+    }
+}
+
 
 RCT_REMAP_METHOD(createPDF,
                  :(NSDictionary*)documentActions

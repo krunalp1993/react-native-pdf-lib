@@ -1,11 +1,12 @@
 
 package com.hopding.pdflib;
 
-import android.content.ActivityNotFoundException;
-import android.content.Intent;
-import android.net.Uri;
-import android.support.v4.content.FileProvider;
-import android.util.Log;
+import android.graphics.Bitmap;
+import android.graphics.pdf.PdfRenderer;
+import android.os.Build;
+import android.os.ParcelFileDescriptor;
+
+import androidx.annotation.RequiresApi;
 
 import com.facebook.react.bridge.NoSuchKeyException;
 import com.facebook.react.bridge.Promise;
@@ -15,6 +16,7 @@ import com.facebook.react.bridge.ReactMethod;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.hopding.pdflib.factories.PDDocumentFactory;
 import com.tom_roush.pdfbox.pdmodel.PDDocument;
@@ -29,6 +31,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Array;
+import java.util.UUID;
 
 import com.hopding.pdflib.factories.PDPageFactory;
 
@@ -47,6 +51,53 @@ public class PDFLibModule extends ReactContextBaseJavaModule {
   @Override
   public String getName() {
     return "PDFLib";
+  }
+
+  @RequiresApi(api = Build.VERSION_CODES.O)
+  @ReactMethod
+  public void getPageData(String path, Number randomId, Promise promise) {
+      String randomName = UUID.randomUUID().toString();
+
+      WritableArray pdfImages = Arguments.createArray();
+      WritableArray carrierFrequencies = Arguments.createArray();
+      try {
+        PdfRenderer renderer = new PdfRenderer(ParcelFileDescriptor.open(new File(path), ParcelFileDescriptor.MODE_READ_ONLY));
+        Bitmap bitmap;
+        final int pageCount = renderer.getPageCount();
+        for (int i = 0; i < pageCount; i++) {
+          PdfRenderer.Page page = renderer.openPage(i);
+
+          Integer pageWidth = page.getWidth();
+          Integer pageHeight = page.getHeight();
+
+          int width = this.getReactApplicationContext().getResources().getDisplayMetrics().densityDpi / 72 * pageWidth;
+          int height = this.getReactApplicationContext().getResources().getDisplayMetrics().densityDpi / 72 * pageHeight;
+          bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+
+          page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+
+          // Save the render result to an image
+          String imagePath = this.getReactApplicationContext().getFilesDir().getAbsolutePath() + "/pdf_data_" + randomId + "/" + randomName + "__" + i + ".png";
+          File renderFile = new File(imagePath);
+          FileOutputStream fileOut = new FileOutputStream(renderFile);
+          bitmap.compress(Bitmap.CompressFormat.PNG, 100, fileOut);
+
+          /* Push image to array */
+          WritableMap pageData = Arguments.createMap();
+          pageData.putString("thumb", imagePath);
+          pageData.putInt("width", pageWidth);
+          pageData.putInt("height", pageHeight);
+          pdfImages.pushMap(pageData);
+
+          // close the page
+          page.close();
+        }
+        // close the renderer
+        renderer.close();
+      } catch (Exception ex) {
+        promise.reject(ex);
+      }
+      promise.resolve(pdfImages);
   }
 
   @ReactMethod
