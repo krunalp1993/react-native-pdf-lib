@@ -2,9 +2,12 @@
 package com.hopding.pdflib;
 
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.pdf.PdfRenderer;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
 
 import androidx.annotation.RequiresApi;
 
@@ -18,6 +21,7 @@ import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 import com.hopding.pdflib.factories.PDDocumentFactory;
 import com.tom_roush.pdfbox.pdmodel.PDDocument;
 import com.tom_roush.pdfbox.pdmodel.PDPage;
@@ -55,7 +59,7 @@ public class PDFLibModule extends ReactContextBaseJavaModule {
 
   @RequiresApi(api = Build.VERSION_CODES.O)
   @ReactMethod
-  public void getPageData(String path, Number randomId, Promise promise) {
+  public void getPageData(String path, Integer randomId, Promise promise) {
       String randomName = UUID.randomUUID().toString();
 
       WritableArray pdfImages = Arguments.createArray();
@@ -70,14 +74,25 @@ public class PDFLibModule extends ReactContextBaseJavaModule {
           Integer pageWidth = page.getWidth();
           Integer pageHeight = page.getHeight();
 
-          int width = this.getReactApplicationContext().getResources().getDisplayMetrics().densityDpi / 72 * pageWidth;
-          int height = this.getReactApplicationContext().getResources().getDisplayMetrics().densityDpi / 72 * pageHeight;
+          int bWidth = pageWidth;
+          int bHeight = pageHeight;
+          float PageRatio = (float)pageHeight / (float)pageWidth;
+          if (pageHeight > 1000) {
+            bHeight = 1000;
+            bWidth = Math.round(1000 / PageRatio);
+          }
+
+          Log.e("PDFEDITOR", "PAGE HEIGHT ==> " + pageHeight + " Page Width => " + pageWidth + " HEIGHT ===> " + bHeight + " Width ===> " + bWidth + " Page Ration ===> " + PageRatio);
+
+          int width = this.getReactApplicationContext().getResources().getDisplayMetrics().densityDpi / 72 * bWidth;
+          int height = this.getReactApplicationContext().getResources().getDisplayMetrics().densityDpi / 72 * bHeight;
           bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+          Canvas canvas = new Canvas(bitmap);
+          canvas.drawColor(Color.WHITE);
 
           page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
-
           // Save the render result to an image
-          String imagePath = this.getReactApplicationContext().getFilesDir().getAbsolutePath() + "/pdf_data_" + randomId + "/" + randomName + "__" + i + ".png";
+          String imagePath = this.getReactApplicationContext().getFilesDir().getAbsolutePath() + "/pdf_data_" + randomId + "/thumbs/" + i + ".png";
           File renderFile = new File(imagePath);
           FileOutputStream fileOut = new FileOutputStream(renderFile);
           bitmap.compress(Bitmap.CompressFormat.PNG, 100, fileOut);
@@ -91,6 +106,13 @@ public class PDFLibModule extends ReactContextBaseJavaModule {
 
           // close the page
           page.close();
+
+          WritableMap payload = Arguments.createMap();
+          payload.putInt("totalPages", pageCount);
+          payload.putInt("currentPage", i + 1);
+          this.reactContext
+          .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+          .emit("onPDFPageProcess", payload);
         }
         // close the renderer
         renderer.close();
