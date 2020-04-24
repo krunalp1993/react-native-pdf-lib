@@ -144,6 +144,7 @@ void PDFPageFactory::drawText (NSDictionary* textActions) {
     PDFUsedFont* font  = pdfWriter->GetFontForFile(fontPath.UTF8String);
 
     AbstractContentContext::TextOptions textOptions(font, fontSize, AbstractContentContext::eRGB, hexColor);
+    context->Tc(0.75);
     context->WriteText(coords.a.intValue, coords.b.intValue, value.UTF8String, textOptions);
 }
 

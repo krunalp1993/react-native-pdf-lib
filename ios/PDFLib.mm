@@ -37,7 +37,7 @@ RCT_REMAP_METHOD(getPageData,
         
         NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
         NSString *documentsPath = [paths objectAtIndex:0];
-        NSString *directoryName = [NSString stringWithFormat:@"/pdf_data_%li", (long)randomId];
+        NSString *directoryName = [NSString stringWithFormat:@"/pdf_data_%li/thumbs", (long)randomId];
         NSString *dataPath = [documentsPath stringByAppendingPathComponent:directoryName];
         
         if (![[NSFileManager defaultManager] fileExistsAtPath:dataPath])
