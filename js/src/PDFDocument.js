@@ -18,6 +18,7 @@ export default class PDFDocument {
   document: DocumentAction = {
     path: '',
     password: '',
+    passPath: '',
     pages: [],
   };
 
@@ -40,8 +41,9 @@ export default class PDFDocument {
     return pdfDocument;
   }
 
-  setPassword = (password: string) => {
+  setPassword = (password: string, passPath: string) => {
     this.document.password = password;
+    this.document.passPath = passPath;
     return this;
   }
 

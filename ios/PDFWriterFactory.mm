@@ -36,21 +36,44 @@ NSString* PDFWriterFactory::modify(NSDictionary* documentActions) {
     EStatusCode esc;
     PDFWriterFactory factory(&pdfWriter);
     
-    // Empty string to modify in place
-    esc = pdfWriter.ModifyPDF(path.UTF8String, ePDFVersion13, @"".UTF8String);
-    if (esc == EStatusCode::eFailure) {
-        return nil;
-    }
+    NSString *password = documentActions[@"password"];
+    NSLog(@"%@%@", @"Document Password: ", password);
     
-    // Add pages
-    factory.addPages(documentActions[@"pages"]);
-    
-    // Modify pages
-    factory.modifyPages(documentActions[@"modifyPages"]);
-    
-    esc = pdfWriter.EndPDF();
-    if (esc == EStatusCode::eFailure) {
-        return nil;
+    if ([password length] > 0) {
+        NSLog(@"In IF COnd ");
+        NSString *passPath = documentActions[@"passPath"];
+        NSLog(@"%@%@", @"Document passPath: ", passPath);
+        esc = pdfWriter.ModifyPDF(path.UTF8String, ePDFVersion13, passPath.UTF8String, LogConfiguration::DefaultLogConfiguration(), PDFCreationSettings(true,true, EncryptionOptions(password.UTF8String,4,password.UTF8String)));
+        
+        NSLog(@"%d", @"Document Modified Set Password: ", esc);
+        if (esc == EStatusCode::eFailure) {
+            return nil;
+        }
+        esc = pdfWriter.EndPDF();
+        NSLog(@"%d", @"Document Modified end Password: ", esc);
+        if (esc == EStatusCode::eFailure) {
+            return nil;
+        }
+        
+        return passPath;
+    } else {
+        NSLog(@"In else COnd ");
+        // Empty string to modify in place
+        esc = pdfWriter.ModifyPDF(path.UTF8String, ePDFVersion13, @"".UTF8String);
+        if (esc == EStatusCode::eFailure) {
+            return nil;
+        }
+        
+        // Add pages
+        factory.addPages(documentActions[@"pages"]);
+        
+        // Modify pages
+        factory.modifyPages(documentActions[@"modifyPages"]);
+        
+        esc = pdfWriter.EndPDF();
+        if (esc == EStatusCode::eFailure) {
+            return nil;
+        }
     }
     
     return path;
