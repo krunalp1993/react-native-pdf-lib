@@ -6,6 +6,7 @@ import type { PageAction } from './PDFPage';
 
 export type DocumentAction = {
   path: string,
+  password: String,
   pages: PageAction[],
   modifyPages?: PageAction[],
 };
@@ -16,6 +17,7 @@ export type DocumentAction = {
 export default class PDFDocument {
   document: DocumentAction = {
     path: '',
+    password: '',
     pages: [],
   };
 
@@ -34,7 +36,13 @@ export default class PDFDocument {
     const pdfDocument = new PDFDocument();
     pdfDocument.setPath(path);
     pdfDocument.document.modifyPages = [];
+    console.log(pdfDocument);
     return pdfDocument;
+  }
+
+  setPassword = (password: string) => {
+    this.document.password = password;
+    return this;
   }
 
   setPath = (path: string) => {
@@ -61,10 +69,14 @@ export default class PDFDocument {
 
   modifyPages = (...pages: PDFPage[]) => {
     pages.forEach(page => {
+      console.log('pages');
+      console.log(pages);
       this.modifyPage(page);
     })
     return this;
   }
+
+
 
   addPage = ({ page }: PDFPage) => {
     if (page.pageIndex !== undefined) {
@@ -84,13 +96,15 @@ export default class PDFDocument {
     return this;
   }
 
+
   write = () => {
     // console.log('Creating this PDFDocument:');
     // console.log(this.document);
     if (!this.document.path) {
       return Promise.reject('PDFDocument must have a path specified!');
     }
-    if (this.document.modifyPages !== undefined) {
+    if (this.document.modifyPages !== undefined || this.document.password !== '') {
+      console.log('modifyingPDF ==>>' , this.document)
       return PDFLib.modifyPDF(this.document);
     }
     if (this.document.pages.length < 1) {
