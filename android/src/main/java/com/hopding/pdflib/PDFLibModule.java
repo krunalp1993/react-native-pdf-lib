@@ -9,6 +9,7 @@ import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+
 import androidx.annotation.RequiresApi;
 
 import com.facebook.react.bridge.NoSuchKeyException;
@@ -26,7 +27,10 @@ import com.hopding.pdflib.factories.PDDocumentFactory;
 import com.tom_roush.pdfbox.pdmodel.PDDocument;
 import com.tom_roush.pdfbox.pdmodel.PDPage;
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream;
+import com.tom_roush.pdfbox.pdmodel.encryption.StandardDecryptionMaterial;
 import com.tom_roush.pdfbox.pdmodel.font.PDFont;
+import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission;
+import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font;
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font;
 import com.tom_roush.pdfbox.util.PDFBoxResourceLoader;
@@ -57,6 +61,32 @@ public class PDFLibModule extends ReactContextBaseJavaModule {
     return "PDFLib";
   }
 
+
+
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    @ReactMethod
+    public void setDecyrption(String path, String password, Promise promise) {
+
+        Log.e("setDecyrption", "setDecyrption path ==> " + path );
+        Log.e("setDecyrption", "setDecyrption password ==> " + password );
+           try (PDDocument document = PDDocument.load(new File(path), password)) {
+
+               Log.e("document", "setDecyrption document ==> " + document );
+            document.setAllSecurityToBeRemoved(true);
+            Log.e("document", "setDecyrption document ==> " + document );
+               AccessPermission ap = new AccessPermission();
+               ap.setCanPrint(true);
+               StandardProtectionPolicy pp = new StandardProtectionPolicy("", "",
+                       ap);
+               pp.setEncryptionKeyLength(128);
+               document.protect(pp);
+               document.save(path);
+               document.close();
+            promise.resolve(path);
+        } catch (Exception e){
+          promise.reject(e);
+        }
+    }
   @RequiresApi(api = Build.VERSION_CODES.O)
   @ReactMethod
   public void getPageData(String path, Integer randomId, Promise promise) {
